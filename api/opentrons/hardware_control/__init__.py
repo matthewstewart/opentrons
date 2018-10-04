@@ -17,6 +17,7 @@ import enum
 from typing import Dict, Union
 from opentrons import types
 from .simulator import Simulator
+from . import pipette_config
 try:
     from .controller import Controller
 except ModuleNotFoundError:
@@ -40,11 +41,17 @@ class _Axis(enum.Enum):
     Y = enum.auto()
     Z = enum.auto()
     A = enum.auto()
+    B = enum.auto()
+    C = enum.auto()
 
     @classmethod
-    def by_mount(cls, mount):
+    def pipette_axis_by_mount(cls, mount):
         bm = {types.Mount.LEFT: cls.Z, types.Mount.RIGHT: cls.A}
         return bm[mount]
+
+    @classmethod
+    def plunger_axis_by_mount(cls, mount):
+        pm = {types.Mount.LEFT: cls.B, types.Mount.RIGHT: cls.C}
 
 
 class MustHomeError(RuntimeError):
@@ -85,9 +92,9 @@ class API:
             self._loop = loop
         # {'X': 0.0, 'Y': 0.0, 'Z': 0.0, 'A': 0.0, 'B': 0.0, 'C': 0.0}
         self._current_position: Dict[str, float] = {}
-
-        self._attached_instruments = {types.Mount.LEFT: None,
-                                      types.Mount.RIGHT: None}
+        self._attached_instruments: Dict[str, str] = {}
+        # self._attached_instrument_properties: Dict[str, tuple] = {}
+        # self._pipette_current_volume: Dict[str, float] = {}
 
     @classmethod
     def build_hardware_controller(
@@ -171,6 +178,10 @@ class API:
     async def halt(self):
         pass
 
+    @_log_call
+    async def reset(self):
+        pass
+
     # Gantry/frame (i.e. not pipette) action API
     @_log_call
     async def home(self, *args, **kwargs):
@@ -186,7 +197,7 @@ class API:
             self, mount: types.Mount, abs_position: types.Point):
         if not self._current_position:
             raise MustHomeError
-        z_axis = _Axis.by_mount(mount)
+        z_axis = _Axis.pipette_axis_by_mount(mount)
         try:
             target_position = {_Axis.X.name: abs_position.x,
                                _Axis.Y.name: abs_position.y,
@@ -199,7 +210,7 @@ class API:
     async def move_rel(self, mount: types.Mount, delta: types.Point):
         if not self._current_position:
             raise MustHomeError
-        z_axis = _Axis.by_mount(mount)
+        z_axis = _Axis.pipette_axis_by_mount(mount)
         try:
             target_position = \
                 {_Axis.X.name: self._current_position[_Axis.X.name] + delta.x,
@@ -226,7 +237,18 @@ class API:
 
     # Pipette action API
     @_log_call
-    async def aspirate(self, mount, volume=None, rate=None):
+    async def aspirate(self, mount, volume, aspirate_speed, rate=None):
+        # Assume correct volume
+        ul_per_mm = pipette_config.key_map_pipette_functions(
+            self._attached_instruments[mount], volume, 'aspirate')
+        mm = volume / ul_per_mm
+        plunger_displacement = 0    # TODO: Calculate plunger distance
+        # Calculate speed = 'aspirate speed' * rate
+        # speed.push()
+        # Set active current
+        target_position = {
+            _Axis.plunger_axis_by_mount(mount).name: plunger_displacement}
+        self._backend.move(target_position)
         pass
 
     @_log_call

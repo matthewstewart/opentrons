@@ -4,7 +4,7 @@ from opentrons import hardware_control as hc
 
 
 async def test_cache_instruments(loop):
-    dummy_instruments_attached = {types.Mount.LEFT: 'model_abc',
+    dummy_instruments_attached = {types.Mount.LEFT: 'p10_single_v1',
                                   types.Mount.RIGHT: None}
     hw_api = hc.API.build_hardware_simulator(
         attached_instruments=dummy_instruments_attached, loop=loop)
@@ -17,12 +17,12 @@ async def test_cache_instruments(loop):
                            '(probably windows)')
 async def test_cache_instruments_hc(monkeypatch, hardware_controller_lockfile,
                                     running_on_pi, loop):
-    dummy_instruments_attached = {types.Mount.LEFT: 'model_abc',
+    dummy_instruments_attached = {types.Mount.LEFT: 'p10_single_v1',
                                   types.Mount.RIGHT: None}
     hw_api_cntrlr = hc.API.build_hardware_controller(loop=loop)
 
     def mock_driver_method(mount):
-        attached_pipette = {'left': 'model_abc', 'right': None}
+        attached_pipette = {'left': 'p10_single_v1', 'right': None}
         return attached_pipette[mount]
     monkeypatch.setattr(hw_api_cntrlr._backend._smoothie_driver,
                         'read_pipette_model', mock_driver_method)
